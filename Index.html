@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Controle de Validade</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .vencido { background-color: #ffcccc; }
+        .alerta { background-color: #fff3cd; }
+        button { padding: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Controle de Validade</h2>
+    
+    <input type="text" id="nome" placeholder="Produto">
+    <input type="date" id="data">
+    <button onclick="adicionar()">Adicionar</button>
+    <button onclick="exportarCSV()">Exportar CSV</button>
+    <input type="file" id="importar" onchange="importarCSV(event)">
+
+    <table id="tabela">
+        <thead>
+            <tr><th>Produto</th><th>Data de Vencimento</th><th>Ação</th></tr>
+        </thead>
+        <tbody id="corpoTabela"></tbody>
+    </table>
+</div>
+
+<script>
+    let produtos = JSON.parse(localStorage.getItem('produtos')) || [];
+
+    function renderizar() {
+        const corpo = document.getElementById('corpoTabela');
+        corpo.innerHTML = '';
+        const hoje = new Date();
+        
+        produtos.forEach((p, index) => {
+            const dataVenc = new Date(p.data);
+            const diffTime = dataVenc - hoje;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            let classe = '';
+            if (diffDays < 0) classe = 'vencido';
+            else if (diffDays <= 10) classe = 'alerta';
+
+            corpo.innerHTML += `<tr class="${classe}">
+                <td>${p.nome}</td>
+                <td>${p.data} ${diffDays <= 10 ? `(Faltam ${diffDays} dias)` : ''}</td>
+                <td><button onclick="excluir(${index})">Excluir</button></td>
+            </tr>`;
+        });
+    }
+
+    function adicionar() {
+        const nome = document.getElementById('nome').value;
+        const data = document.getElementById('data').value;
+        if(nome && data) {
+            produtos.push({nome, data});
+            localStorage.setItem('produtos', JSON.stringify(produtos));
+            renderizar();
+        }
+    }
+
+    function excluir(index) {
+        produtos.splice(index, 1);
+        localStorage.setItem('produtos', JSON.stringify(produtos));
+        renderizar();
+    }
+
+    function exportarCSV() {
+        let csv = "Produto,Data\n";
+        produtos.forEach(p => csv += `${p.nome},${p.data}\n`);
+        const blob = new Blob([csv], {type: 'text/csv'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'produtos.csv';
+        a.click();
+    }
+
+    function importarCSV(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const rows = e.target.result.split('\n').slice(1);
+            produtos = rows.filter(r => r).map(r => {
+                const [nome, data] = r.split(',');
+                return {nome, data};
+            });
+            localStorage.setItem('produtos', JSON.stringify(produtos));
+            renderizar();
+        };
+        reader.readAsText(file);
+    }
+
+    renderizar();
+</script>
+</body>
+</html>
